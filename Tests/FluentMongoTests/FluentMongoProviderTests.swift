@@ -7,11 +7,10 @@
 //
 
 import XCTest
-import Fluent
 import FluentBenchmark
 import MongoSwift
 @testable import FluentMongo
-
+/*
 class FluentMongoProviderTests: XCTestCase {
 
     var benchmarker: Benchmarker<FluentMongo.MongoDatabase>!
@@ -434,4 +433,4 @@ class FluentMongoProviderTests: XCTestCase {
         }
     }
     */
-}
+}*/
