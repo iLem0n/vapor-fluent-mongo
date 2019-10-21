@@ -16,12 +16,12 @@ let package = Package(
       .library(name: "FluentMongo", targets: ["FluentMongo"])
     ],
     dependencies: [
-      .package(url: "https://github.com/vapor/core.git", .upToNextMajor(from: "3.9.2")),
-      .package(url: "https://github.com/vapor/fluent.git", .upToNextMajor(from: "3.2.1")),
+      //.package(url: "https://github.com/vapor/core.git", .upToNextMajor(from: "3.9.2")),
+      .package(url: "https://github.com/vapor/fluent-kit.git", .upToNextMajor(from: "1.0.0-alpha.3.1")),
       .package(url: "https://github.com/mongodb/mongo-swift-driver.git", .upToNextMinor(from: "0.1.3"))
     ],
     targets: [
-        .target(name: "FluentMongo", dependencies: ["Async", "Fluent", "MongoSwift"]),
-        .testTarget(name: "FluentMongoTests", dependencies: ["FluentMongo", "FluentBenchmark"])
+        .target(name: "FluentMongo", dependencies: [/*"Async",*/ "FluentKit", "MongoSwift"]),
+        .testTarget(name: "FluentMongoTests", dependencies: ["FluentMongo"])
     ]
 )
