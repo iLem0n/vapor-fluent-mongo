@@ -7,8 +7,8 @@
 //
 
 import Foundation
-import AsyncKit
 import FluentKit
+import AsyncKit
 
 extension DatabaseID {
     public static var mongo: DatabaseID {

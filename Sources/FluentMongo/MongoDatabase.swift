@@ -8,8 +8,8 @@
 
 import Foundation
 import FluentKit
-import AsyncKit
 import MongoSwift
+import AsyncKit
 
 public struct MongoConfiguration {
 

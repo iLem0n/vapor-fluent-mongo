@@ -7,8 +7,8 @@
 //
 
 import Foundation
-import AsyncKit
 import MongoSwift
+import AsyncKit
 
 public final class MongoConnection: ConnectionPoolItem {
 
