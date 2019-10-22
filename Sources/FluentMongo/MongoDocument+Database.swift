@@ -24,10 +24,43 @@ extension Document: DatabaseRow {
             throw DecodingError.typeMismatch(MongoDatabaseDriver.self, .init(codingPath: [], debugDescription: "Database.driver is not of type \"MongoDatabaseDriver\"."))
         }
 
-        guard let data = self[field] else {
-            throw DecodingError.valueNotFound(T.self, .init(codingPath: [], debugDescription: "Data not found for key \"\(field)\"."))
+        let decoder = try driver.decoder.decode(DecoderUnwrapper.self, from: self).decoder
+        let container = try decoder.container(keyedBy: DatabaseRowCodingKey.self)
+
+        return try container.decode(T.self, forKey: .init(field))
+    }
+}
+
+extension Document {
+
+    private struct DecoderUnwrapper: Decodable {
+
+        let decoder: Decoder
+
+        init(from decoder: Decoder) {
+            self.decoder = decoder
+        }
+    }
+
+    private struct DatabaseRowCodingKey: CodingKey {
+
+        init(_ stringValue: String) {
+            self.stringValue = stringValue
+            self.intValue = nil
         }
 
-        //let decoder = driver.decoder.decode(T.self, from: <#T##Data#>)
+        var stringValue: String
+
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+            self.intValue = nil
+        }
+
+        var intValue: Int?
+
+        init?(intValue: Int) {
+            self.stringValue = "\(intValue)"
+            self.intValue = intValue
+        }
     }
 }
