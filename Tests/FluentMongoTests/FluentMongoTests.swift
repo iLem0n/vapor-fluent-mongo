@@ -7,6 +7,7 @@
 //
 
 import XCTest
+import NIO
 import AsyncKit
 import FluentBenchmark
 import FluentMongo
@@ -130,170 +131,57 @@ final class FluentMongoTests: XCTestCase {
         try self.benchmarker.testSiblingsAttach()
     }
 
+    func testParentGet() throws {
+        try self.benchmarker.testParentGet()
+    }
+
+    func testParentSerialization() throws {
+        try self.benchmarker.testParentSerialization()
+    }
+
     func testSiblingsEagerLoad() throws {
         try self.benchmarker.testSiblingsEagerLoad()
     }
 
-    func testClarityModel() throws {
-        final class Clarity: Model {
-            static let schema = "clarities"
+    func testMultipleJoinSameTable() throws {
+        try self.benchmarker.testMultipleJoinSameTable()
+    }
 
-            @ID(key: "id")
-            var id: Int?
-
-            @Field(key: "at")
-            var at: Date
-
-            @Field(key: "cloud_condition")
-            var cloudCondition: Int
-
-            @Field(key: "wind_condition")
-            var windCondition: Int
-
-            @Field(key: "rain_condition")
-            var rainCondition: Int
-
-            @Field(key: "day_condition")
-            var daylightCondition: Int
-
-            @Field(key: "sky_temperature")
-            var skyTemperature: Double?
-
-            @Field(key: "sensor_temperature")
-            var sensorTemperature: Double?
-
-            @Field(key: "ambient_temperature")
-            var ambientTemperature: Double
-
-            @Field(key: "dewpoint_temperature")
-            var dewpointTemperature: Double
-
-            @Field(key: "wind_speed")
-            var windSpeed: Double?
-
-            @Field(key: "humidity")
-            var humidity: Double
-
-            @Field(key: "daylight")
-            var daylight: Int
-
-            @Field(key: "rain")
-            var rain: Bool
-
-            @Field(key: "wet")
-            var wet: Bool
-
-            @Field(key: "heater")
-            var heater: Double
-
-            @Field(key: "close_requested")
-            var closeRequested: Bool
-
-            init() { }
-        }
-
-        struct CreateClarity: Migration {
-            func prepare(on database: Database) -> EventLoopFuture<Void> {
-                return database.schema("clarities")
-                    .field("id", .int, .identifier(auto: true))
-                    .field("at", .datetime, .required)
-                    .field("cloud_condition", .int, .required)
-                    .field("wind_condition", .int, .required)
-                    .field("rain_condition", .int, .required)
-                    .field("day_condition", .int, .required)
-                    .field("sky_temperature", .float)
-                    .field("sensor_temperature", .float)
-                    .field("ambient_temperature", .float, .required)
-                    .field("dewpoint_temperature", .float, .required)
-                    .field("wind_speed", .float)
-                    .field("humidity", .double, .required)
-                    .field("daylight", .int, .required)
-                    .field("rain", .bool, .required)
-                    .field("wet", .bool, .required)
-                    .field("heater", .float, .required)
-                    .field("close_requested", .bool, .required)
-                    .create()
-            }
-
-            func revert(on database: Database) -> EventLoopFuture<Void> {
-                return database.schema("clarities").delete()
-            }
-        }
-
-        defer { try? CreateClarity().revert(on: self.pool).wait() }
-
-        try CreateClarity().prepare(on: self.pool).wait()
-
-        let now = Date()
-
-        do {
-            let clarity = Clarity()
-            clarity.at = now
-            clarity.cloudCondition = 1
-            clarity.windCondition = 2
-            clarity.rainCondition = 3
-            clarity.daylightCondition = 4
-            clarity.skyTemperature = nil
-            clarity.sensorTemperature = nil
-            clarity.ambientTemperature = 20.0
-            clarity.dewpointTemperature = -3.0
-            clarity.windSpeed = nil
-            clarity.humidity = 59.1
-            clarity.daylight = 12
-            clarity.rain = false
-            clarity.wet = true
-            clarity.heater = 10
-            clarity.closeRequested = false
-            try clarity.create(on: self.pool).wait()
-        }
-
-        do {
-            let clarity = try Clarity.query(on: self.pool).first().wait()!
-            XCTAssertEqual(clarity.at.description, now.description)
-            XCTAssertEqual(clarity.cloudCondition, 1)
-            XCTAssertEqual(clarity.windCondition, 2)
-            XCTAssertEqual(clarity.rainCondition, 3)
-            XCTAssertEqual(clarity.daylightCondition, 4)
-            XCTAssertEqual(clarity.skyTemperature, nil)
-            XCTAssertEqual(clarity.sensorTemperature, nil)
-            XCTAssertEqual(clarity.ambientTemperature, 20.0)
-            XCTAssertEqual(clarity.dewpointTemperature, -3.0)
-            XCTAssertEqual(clarity.windSpeed, nil)
-            XCTAssertEqual(clarity.humidity, 59.1)
-            XCTAssertEqual(clarity.daylight, 12)
-            XCTAssertEqual(clarity.rain, false)
-            XCTAssertEqual(clarity.wet, true)
-            XCTAssertEqual(clarity.heater, 10)
-            XCTAssertEqual(clarity.closeRequested, false)
-        }
+    func testOptionalParent() throws {
+        try self.benchmarker.testOptionalParent()
     }
 
     var benchmarker: FluentBenchmarker {
-        return .init(database: self.pool)
+        return .init(database: self.dbs.default())
     }
-
-    var pool: ConnectionPool<MongoConnectionSource>!
-
+    var threadPool: NIOThreadPool!
+    var eventLoopGroup: EventLoopGroup!
+    var dbs: Databases!
 
     override func setUp() {
         XCTAssert(isLoggingConfigured)
-
-        let eventLoop = MultiThreadedEventLoopGroup(numberOfThreads: 1).next()
-
-        let configuration = try! MongoConfiguration(
-            host: "localhost",
-            port: 27017,
-            database: "vapor_database"
+        self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
+        self.threadPool = .init(numberOfThreads: 2)
+        self.dbs = Databases()
+        self.dbs.mongo(
+            configuration: try! .init(
+                host: "localhost",
+                port: 27017,
+                database: "vapor_database"
+            ),
+            threadPool: self.threadPool,
+            poolConfiguration: .init(maxConnections: 8),
+            on: self.eventLoopGroup
         )
-
-        let db = MongoConnectionSource(configuration: configuration, on: eventLoop)
-
-        self.pool = ConnectionPool(config: .init(maxConnections: 1), source: db)
     }
 
     override func tearDown() {
-        try! self.pool.close().wait()
-        self.pool = nil
+        self.dbs.shutdown()
+        self.dbs = nil
+        try! self.threadPool.syncShutdownGracefully()
+        self.threadPool = nil
+        try! self.eventLoopGroup.syncShutdownGracefully()
+        self.eventLoopGroup = nil
     }
 }
 
