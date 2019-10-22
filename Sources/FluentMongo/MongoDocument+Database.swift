@@ -19,6 +19,6 @@ extension Document: DatabaseOutput {
     }
 
     public func decode<T>(field: String, as type: T.Type) throws -> T where T: Decodable {
-        self.
+        fatalError()
     }
 }

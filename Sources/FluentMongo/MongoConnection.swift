@@ -7,8 +7,10 @@
 //
 
 import Foundation
-import MongoSwift
+import NIO
 import AsyncKit
+import Logging
+import MongoSwift
 
 public final class MongoConnection: ConnectionPoolItem {
 
@@ -16,26 +18,47 @@ public final class MongoConnection: ConnectionPoolItem {
         to connectionString: String,
         database: String,
         options: ClientOptions? = nil,
+        logger: Logger = .init(label: "vapor.fluent.mongo.connection"),
+        threadPool: NIOThreadPool,
         on eventLoop: EventLoop
     ) -> EventLoopFuture<MongoConnection> {
 
-        return eventLoop.submit {
-            MongoConnection(
-                client: try MongoClient(connectionString, options: options),
-                database: database,
-                on: eventLoop
-            )
+        let promise = eventLoop.makePromise(of: MongoConnection.self)
+
+        threadPool.submit { _ in
+            do {
+                let connection = MongoConnection(
+                    client: try MongoClient(connectionString, options: options),
+                    database: database,
+                    threadPool: threadPool,
+                    logger: logger,
+                    on: eventLoop
+                )
+
+                logger.debug("Connected to mongo db: \(database)")
+                promise.succeed(connection)
+            } catch {
+                logger.error("Failed to connect to mongo db: \(database). \(error.localizedDescription)")
+                promise.fail(error)
+            }
         }
+
+        return promise.futureResult
     }
+
     // MARK: Initialization
 
     init(
         client: MongoClient,
         database: String,
+        threadPool: NIOThreadPool,
+        logger: Logger,
         on eventLoop: EventLoop
     ) {
         self.client = client
         self.database = database
+        self.threadPool = threadPool
+        self.logger = logger
         self.eventLoop = eventLoop
     }
 
@@ -49,14 +72,25 @@ public final class MongoConnection: ConnectionPoolItem {
 
     private let client: MongoClient
 
+    private let logger: Logger
+
+    private let threadPool: NIOThreadPool
+
     // MARK: ConnectionPoolItem
 
     public private(set) var isClosed: Bool = false
 
     public func close() -> EventLoopFuture<Void> {
-        return self.eventLoop.submit {
+
+        let promise = self.eventLoop.makePromise(of: Void.self)
+
+        self.threadPool.submit { state in
             self.client.close()
-            self.isClosed = true
+            self.eventLoop.submit {
+                self.isClosed = true
+            }.cascade(to: promise)
         }
+
+        return promise.futureResult
     }
 }

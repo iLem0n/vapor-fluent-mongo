@@ -1,5 +1,5 @@
 //
-//  MongoDatabase.swift
+//  MongoConfiguration.swift
 //  FluentMongo
 //
 //  Created by Valerio Mazzeo on 21/10/2019.
@@ -7,17 +7,19 @@
 //
 
 import Foundation
-import FluentKit
 import MongoSwift
-import AsyncKit
 
 public struct MongoConfiguration {
+
+    // MARK: Accessing Attributes
 
     public let connectionURL: URL
 
     public let database: String
 
     public let options: ClientOptions?
+
+    // MARK: Initialization
 
     /// Creates a new `MongoConfiguration`.
     public init(connectionString: String, options: ClientOptions? = nil) throws {
@@ -81,26 +83,5 @@ extension MongoConfiguration {
 
     public enum Error: Swift.Error {
         case missingEnvironmentKey(EnvironmentKey)
-    }
-}
-
-public struct MongoConnectionSource: ConnectionPoolSource {
-
-    public var eventLoop: EventLoop
-
-    public let configuration: MongoConfiguration
-
-    public init(configuration: MongoConfiguration, on eventLoop: EventLoop) {
-        self.configuration = configuration
-        self.eventLoop = eventLoop
-    }
-
-    public func makeConnection() -> EventLoopFuture<MongoConnection> {
-        return MongoConnection.connect(
-            to: self.configuration.connectionURL.absoluteString,
-            database: self.configuration.database,
-            options: self.configuration.options,
-            on: self.eventLoop
-        )
     }
 }

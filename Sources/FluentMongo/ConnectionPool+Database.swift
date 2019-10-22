@@ -12,6 +12,10 @@ import AsyncKit
 
 extension ConnectionPool: Database where Source.Connection: Database {
 
+    public var eventLoop: EventLoop {
+        return self.source.eventLoop
+    }
+
     public func execute(_ schema: DatabaseSchema) -> EventLoopFuture<Void> {
         return self.withConnection { $0.execute(schema) }
     }

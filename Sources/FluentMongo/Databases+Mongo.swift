@@ -7,8 +7,10 @@
 //
 
 import Foundation
-import FluentKit
+import NIO
 import AsyncKit
+import FluentKit
+import Logging
 
 extension DatabaseID {
     public static var mongo: DatabaseID {
@@ -19,12 +21,14 @@ extension DatabaseID {
 extension Databases {
     public mutating func mongo(
         configuration: MongoConfiguration,
+        threadPool: NIOThreadPool,
         poolConfiguration: ConnectionPoolConfig = .init(),
         as id: DatabaseID = .mongo,
         isDefault: Bool = true
     ) {
         let db = MongoConnectionSource(
             configuration: configuration,
+            threadPool: threadPool,
             on: self.eventLoop
         )
         let pool = ConnectionPool(config: poolConfiguration, source: db)
