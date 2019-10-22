@@ -12,13 +12,22 @@ import MongoSwift
 
 public typealias MongoDocument = Document
 
-extension Document: DatabaseOutput {
+extension Document: DatabaseRow {
 
     public func contains(field: String) -> Bool {
         return self.hasKey(field)
     }
 
-    public func decode<T>(field: String, as type: T.Type) throws -> T where T: Decodable {
-        fatalError()
+    public func decode<T>(field: String, as type: T.Type, for database: Database) throws -> T where T: Decodable {
+
+        guard let driver = database.driver as? MongoDatabaseDriver else {
+            throw DecodingError.typeMismatch(MongoDatabaseDriver.self, .init(codingPath: [], debugDescription: "Database.driver is not of type \"MongoDatabaseDriver\"."))
+        }
+
+        guard let data = self[field] else {
+            throw DecodingError.valueNotFound(T.self, .init(codingPath: [], debugDescription: "Data not found for key \"\(field)\"."))
+        }
+
+        //let decoder = driver.decoder.decode(T.self, from: <#T##Data#>)
     }
 }

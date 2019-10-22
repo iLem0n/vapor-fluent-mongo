@@ -18,11 +18,11 @@ public struct MongoConnectionSource: ConnectionPoolSource {
     public init(
         configuration: MongoConfiguration,
         threadPool: NIOThreadPool,
-        on eventLoop: EventLoop
+        logger: Logger = .init(label: "vapor.fluent.mongo.connection-source")
     ) {
         self.configuration = configuration
         self.threadPool = threadPool
-        self.eventLoop = eventLoop
+        self.logger = logger
     }
 
     // MARK: Managing Connection Source
@@ -31,17 +31,17 @@ public struct MongoConnectionSource: ConnectionPoolSource {
 
     private let threadPool: NIOThreadPool
 
+    private let logger: Logger
+
     // MARK: ConnectionPoolSource
 
-    public var eventLoop: EventLoop
-
-    public func makeConnection() -> EventLoopFuture<MongoConnection> {
+    public func makeConnection(on eventLoop: EventLoop) -> EventLoopFuture<MongoConnection> {
         return MongoConnection.connect(
             to: self.configuration.connectionURL.absoluteString,
             database: self.configuration.database,
             options: self.configuration.options,
             threadPool: threadPool,
-            on: self.eventLoop
+            on: eventLoop
         )
     }
 }

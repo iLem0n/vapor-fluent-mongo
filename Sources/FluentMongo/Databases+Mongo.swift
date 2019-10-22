@@ -19,19 +19,21 @@ extension DatabaseID {
 }
 
 extension Databases {
-    public mutating func mongo(
+    public func mongo(
         configuration: MongoConfiguration,
         threadPool: NIOThreadPool,
-        poolConfiguration: ConnectionPoolConfig = .init(),
+        poolConfiguration: ConnectionPoolConfiguration = .init(),
+        logger: Logger = .init(label: "vapor.fluent.mongo"),
         as id: DatabaseID = .mongo,
-        isDefault: Bool = true
+        isDefault: Bool = true,
+        on eventLoopGroup: EventLoopGroup
     ) {
         let db = MongoConnectionSource(
             configuration: configuration,
             threadPool: threadPool,
-            on: self.eventLoop
+            logger: logger
         )
-        let pool = ConnectionPool(config: poolConfiguration, source: db)
-        self.add(pool, as: id, isDefault: isDefault)
+        let pool = ConnectionPool(configuration: poolConfiguration, source: db, on: eventLoopGroup)
+        self.add(MongoDatabaseDriver(pool: pool), logger: logger, as: id, isDefault: isDefault)
     }
 }
