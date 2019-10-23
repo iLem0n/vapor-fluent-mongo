@@ -41,11 +41,15 @@ extension MongoDatabaseDriver: DatabaseDriver {
     }
 
     func execute(query: DatabaseQuery, database: Database, onRow: @escaping (DatabaseRow) -> ()) -> EventLoopFuture<Void> {
-        fatalError()
+        return self.pool.withConnection { connection in
+            return connection.run(command: MongoQueryConverter().convert(query)) { document in
+                onRow(document)
+            }
+        }
     }
 
     func execute(schema: DatabaseSchema, database: Database) -> EventLoopFuture<Void> {
-        fatalError()
+        return self.eventLoopGroup.future()
     }
 
     func shutdown() {

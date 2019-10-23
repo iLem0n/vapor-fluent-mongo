@@ -94,3 +94,48 @@ public final class MongoConnection: ConnectionPoolItem {
         return promise.futureResult
     }
 }
+
+public typealias MongoCommand = MongoDocument
+
+extension MongoConnection {
+
+    public func run(command: MongoCommand) -> EventLoopFuture<[MongoDocument]> {
+        var documents: [MongoDocument] = []
+        return self.run(command: command) { document in
+            documents.append(document)
+        }.map { documents }
+    }
+
+    public func run(command: MongoCommand, _ onRow: @escaping (MongoDocument) throws -> Void) -> EventLoopFuture<Void> {
+        self.logger.debug("\(command)")
+
+        let promise = self.eventLoop.makePromise(of: Void.self)
+
+        self.threadPool.submit { state in
+            do {
+                let database = self.client.db(self.database)
+                let result = try database.runCommand(command)
+
+                var callbacks: [EventLoopFuture<Void>] = []
+                let callback = self.eventLoop.submit {
+                    try onRow(result)
+                }
+                callbacks.append(callback)
+// TODO: Sort this out
+//                while let row = try statement.nextRow(for: columns) {
+//                    let callback = self.eventLoop.submit {
+//                        try onRow(row)
+//                    }
+//                    callbacks.append(callback)
+//                }
+                EventLoopFuture<Void>
+                    .andAllComplete(callbacks, on: self.eventLoop)
+                    .cascade(to: promise)
+            } catch {
+                promise.fail(error)
+            }
+        }
+
+        return promise.futureResult
+    }
+}

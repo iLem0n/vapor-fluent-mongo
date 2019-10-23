@@ -12,6 +12,7 @@ import AsyncKit
 import FluentBenchmark
 import FluentMongo
 import Logging
+import MongoSwift
 
 final class FluentMongoTests: XCTestCase {
 
@@ -162,13 +163,18 @@ final class FluentMongoTests: XCTestCase {
         XCTAssert(isLoggingConfigured)
         self.eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
         self.threadPool = .init(numberOfThreads: 2)
+
+        let configuration = try! MongoConfiguration(
+            host: "localhost",
+            port: 27017,
+            database: "vapor_database"
+        )
+
+        try? MongoClient(configuration.connectionURL.absoluteString).db(configuration.database).drop()
+
         self.dbs = Databases()
         self.dbs.mongo(
-            configuration: try! .init(
-                host: "localhost",
-                port: 27017,
-                database: "vapor_database"
-            ),
+            configuration: configuration,
             threadPool: self.threadPool,
             poolConfiguration: .init(maxConnections: 8),
             on: self.eventLoopGroup
