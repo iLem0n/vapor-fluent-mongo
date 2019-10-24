@@ -62,7 +62,8 @@ extension MongoQueryConverter {
         let collection = database.collection(self.query.schema)
 
         guard let result = try collection.insertOne(document) else {
-            return []
+            // tanner: you should always return a row on create containing all the default values - if there are no default or db generated values, then just return an empty one
+            return [Document()]
         }
 
         return [result]

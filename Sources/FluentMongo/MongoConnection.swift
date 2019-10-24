@@ -107,7 +107,7 @@ extension MongoConnection {
         }.map { results }
     }
 
-    public func execute(_ closure: @escaping (MongoDatabase) throws -> [DatabaseRow], _ onRow: @escaping (DatabaseRow) throws -> Void) -> EventLoopFuture<Void> {
+    public func execute(_ closure: @escaping (MongoDatabase) throws -> [DatabaseRow], _ onRow: @escaping (DatabaseRow) -> Void) -> EventLoopFuture<Void> {
 
         let promise = self.eventLoop.makePromise(of: Void.self)
 
@@ -116,10 +116,14 @@ extension MongoConnection {
                 let database = self.client.db(self.database)
                 let results = try closure(database)
 
+                guard !results.isEmpty else {
+                    return promise.succeed(Void())
+                }
+
                 var callbacks: [EventLoopFuture<Void>] = []
                 for result in results {
                     let callback = self.eventLoop.submit {
-                        try onRow(result)
+                        onRow(result)
                     }
                     callbacks.append(callback)
                 }
