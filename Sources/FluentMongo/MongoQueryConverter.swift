@@ -51,22 +51,37 @@ extension MongoQueryConverter {
 
     private func insert(_ database: MongoDatabase) throws -> [DatabaseRow] {
 
-        var document = MongoDocument()
+        var documents = [MongoDocument]()
 
-        for (field, input) in zip(query.fields, query.input) {
-            let field = self.field(field)
-            let value = try self.value(input.first!, using: encoder)
-            document[field] = value
+        let fields = query.fields.map { self.field($0) }
+
+        for input in query.input {
+            var document = MongoDocument()
+            for (field, value) in zip(fields, input) {
+                document[field] = try self.value(value, using: encoder)
+            }
+            documents.append(document)
+        }
+
+        func defaultRow() -> [DatabaseRow] {
+            // tanner: you should always return a row on create containing all the default values - if there are no default or db generated values, then just return an empty one
+            return documents.count == 1 ? [Document()] : []
         }
 
         let collection = database.collection(self.query.schema)
 
-        guard let result = try collection.insertOne(document) else {
-            // tanner: you should always return a row on create containing all the default values - if there are no default or db generated values, then just return an empty one
-            return [Document()]
-        }
+        switch documents.count {
+        case 1:
+            guard let result = try collection.insertOne(documents.removeFirst()) else {
+                return defaultRow()
+            }
 
-        return [result]
+            return [result]
+        default:
+            let result = try collection.insertMany(documents)
+            // TODO: Log result
+            return defaultRow()
+        }
     }
 
     private func update(_ database: MongoDatabase) -> [DatabaseRow] {
