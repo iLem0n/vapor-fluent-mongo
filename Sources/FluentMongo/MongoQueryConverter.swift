@@ -58,7 +58,8 @@ extension MongoQueryConverter {
         for input in query.input {
             var document = MongoDocument()
             for (field, value) in zip(fields, input) where !field.starts(with: ["id"]) {
-                document[field] = try self.value(value, using: encoder)
+                #warning("TODO: rename id to _id")
+                document[field] = try self.value(value, using: self.encoder)
             }
             documents.append(document)
         }
@@ -76,6 +77,7 @@ extension MongoQueryConverter {
                 return defaultRow()
             }
             // TODO: Log result
+            #warning("TODO: Handle this correctly")
             return [["fluentID": 0] as MongoDocument]
         default:
             let result = try collection.insertMany(documents)
@@ -99,18 +101,6 @@ extension MongoQueryConverter {
 
 extension MongoQueryConverter {
 
-    private struct AnyEncodable: Encodable {
-        public let encodable: Encodable
-
-        public init(_ encodable: Encodable) {
-            self.encodable = encodable
-        }
-
-        public func encode(to encoder: Encoder) throws {
-            try self.encodable.encode(to: encoder)
-        }
-    }
-
     private func field(_ field: DatabaseQuery.Field) -> [String] {
         switch field {
         case .aggregate(let aggregate):
@@ -125,10 +115,7 @@ extension MongoQueryConverter {
     private func value(_ value: DatabaseQuery.Value, using encoder: BSONEncoder) throws -> BSONValue {
         switch value {
         case .bind(let encodable):
-            let wrappedData = ["value": AnyEncodable(encodable)]
-            let document: Document = try encoder.encode(wrappedData)
-
-            return document["value"] ?? BSONNull()
+            return try encoder.encode(encodable)
         case .null:
             return BSONNull()
         case .array(let values):

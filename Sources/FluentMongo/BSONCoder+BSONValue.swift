@@ -9,6 +9,31 @@
 import Foundation
 import MongoSwift
 
+extension BSONEncoder {
+
+    public func encode(_ value: Encodable) throws -> BSONValue {
+        let wrappedData = ["value": AnyEncodable(value)]
+        let document: Document = try self.encode(wrappedData)
+
+        return document["value"] ?? BSONNull()
+    }
+}
+
+extension BSONEncoder {
+
+    private struct AnyEncodable: Encodable {
+        public let encodable: Encodable
+
+        public init(_ encodable: Encodable) {
+            self.encodable = encodable
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            try self.encodable.encode(to: encoder)
+        }
+    }
+}
+
 extension BSONDecoder {
 
     public func decode<T: Decodable>(_ type: T.Type, from document: Document, forKey key: String) throws -> T {
