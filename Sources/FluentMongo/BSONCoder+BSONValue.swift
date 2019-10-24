@@ -17,13 +17,6 @@ extension BSONDecoder {
 
         return try container.decode(T.self, forKey: .init(key))
     }
-
-    public func decode<T: Decodable>(_ type: T.Type, from value: BSONValue) throws -> T {
-        let decoder = try self.decode(DecoderUnwrapper.self, from: value).decoder
-        let container = try decoder.singleValueContainer()
-
-        return try container.decode(T.self)
-    }
 }
 
 extension BSONDecoder {

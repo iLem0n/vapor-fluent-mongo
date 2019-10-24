@@ -57,7 +57,7 @@ extension MongoQueryConverter {
 
         for input in query.input {
             var document = MongoDocument()
-            for (field, value) in zip(fields, input) {
+            for (field, value) in zip(fields, input) where !field.starts(with: ["id"]) {
                 document[field] = try self.value(value, using: encoder)
             }
             documents.append(document)
@@ -75,8 +75,8 @@ extension MongoQueryConverter {
             guard let result = try collection.insertOne(documents.removeFirst()) else {
                 return defaultRow()
             }
-
-            return [result]
+            // TODO: Log result
+            return [["fluentID": 0] as MongoDocument]
         default:
             let result = try collection.insertMany(documents)
             // TODO: Log result
