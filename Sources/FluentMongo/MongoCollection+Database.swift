@@ -1,8 +1,8 @@
 //
-//  MongoDocument+Database.swift
+//  MongoCollection+Database.swift
 //  FluentMongo
 //
-//  Created by Valerio Mazzeo on 21/10/2019.
+//  Created by Valerio Mazzeo on 24/10/2019.
 //  Copyright © 2019 Asensei Inc. All rights reserved.
 //
 
@@ -10,12 +10,14 @@ import Foundation
 import FluentKit
 import MongoSwift
 
-public typealias MongoDocument = Document
+extension InsertOneResult: DatabaseRow {
 
-extension Document: DatabaseRow {
+    public var description: String {
+        return ["_id": insertedId].description
+    }
 
     public func contains(field: String) -> Bool {
-        return self.hasKey(field)
+        return field == "fluentID"
     }
 
     public func decode<T>(field: String, as type: T.Type, for database: Database) throws -> T where T: Decodable {
@@ -24,6 +26,6 @@ extension Document: DatabaseRow {
             throw DecodingError.typeMismatch(MongoDatabaseDriver.self, .init(codingPath: [], debugDescription: "Database.driver is not of type \"MongoDatabaseDriver\"."))
         }
 
-        return try driver.decoder.decode(T.self, from: self, forKey: field)
+        return try driver.decoder.decode(T.self, from: self.insertedId)
     }
 }

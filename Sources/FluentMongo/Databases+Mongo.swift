@@ -11,6 +11,7 @@ import NIO
 import AsyncKit
 import FluentKit
 import Logging
+import MongoSwift
 
 extension DatabaseID {
     public static var mongo: DatabaseID {
@@ -35,5 +36,11 @@ extension Databases {
         )
         let pool = ConnectionPool(configuration: poolConfiguration, source: db, on: eventLoopGroup)
         self.add(MongoDatabaseDriver(pool: pool), logger: logger, as: id, isDefault: isDefault)
+    }
+}
+
+extension DatabaseQuery.Value {
+    public static func mongo(_ value: BSONValue) -> DatabaseQuery.Value {
+        return .custom(value)
     }
 }

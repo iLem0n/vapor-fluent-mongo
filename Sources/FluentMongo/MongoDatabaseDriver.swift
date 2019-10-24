@@ -42,7 +42,7 @@ extension MongoDatabaseDriver: DatabaseDriver {
 
     func execute(query: DatabaseQuery, database: Database, onRow: @escaping (DatabaseRow) -> ()) -> EventLoopFuture<Void> {
         return self.pool.withConnection { connection in
-            return connection.run(command: MongoQueryConverter().convert(query, using: self.encoder)) { document in
+            return connection.execute(MongoQueryConverter(query, using: self.encoder).convert) { document in
                 onRow(document)
             }
         }

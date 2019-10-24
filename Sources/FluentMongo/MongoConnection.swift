@@ -11,6 +11,7 @@ import NIO
 import AsyncKit
 import Logging
 import MongoSwift
+import protocol FluentKit.DatabaseRow // TODO: Review if we can avoid having this dependency here
 
 public final class MongoConnection: ConnectionPoolItem {
 
@@ -99,35 +100,30 @@ public typealias MongoCommand = MongoDocument
 
 extension MongoConnection {
 
-    public func run(command: MongoCommand) -> EventLoopFuture<[MongoDocument]> {
-        var documents: [MongoDocument] = []
-        return self.run(command: command) { document in
-            documents.append(document)
-        }.map { documents }
+    public func execute(_ closure: @escaping (MongoDatabase) throws -> [DatabaseRow]) -> EventLoopFuture<[DatabaseRow]> {
+        var results: [DatabaseRow] = []
+        return self.execute(closure) { result in
+            results.append(result)
+        }.map { results }
     }
 
-    public func run(command: MongoCommand, _ onRow: @escaping (MongoDocument) throws -> Void) -> EventLoopFuture<Void> {
-        self.logger.debug("\(command)")
+    public func execute(_ closure: @escaping (MongoDatabase) throws -> [DatabaseRow], _ onRow: @escaping (DatabaseRow) throws -> Void) -> EventLoopFuture<Void> {
 
         let promise = self.eventLoop.makePromise(of: Void.self)
 
-        self.threadPool.submit { state in
+        self.threadPool.submit { _ in
             do {
                 let database = self.client.db(self.database)
-                let result = try database.runCommand(command)
+                let results = try closure(database)
 
                 var callbacks: [EventLoopFuture<Void>] = []
-                let callback = self.eventLoop.submit {
-                    try onRow(result)
+                for result in results {
+                    let callback = self.eventLoop.submit {
+                        try onRow(result)
+                    }
+                    callbacks.append(callback)
                 }
-                callbacks.append(callback)
-// TODO: Sort this out
-//                while let row = try statement.nextRow(for: columns) {
-//                    let callback = self.eventLoop.submit {
-//                        try onRow(row)
-//                    }
-//                    callbacks.append(callback)
-//                }
+
                 EventLoopFuture<Void>
                     .andAllComplete(callbacks, on: self.eventLoop)
                     .cascade(to: promise)
