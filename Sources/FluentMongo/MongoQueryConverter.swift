@@ -96,12 +96,12 @@ extension MongoQueryConverter {
         }
     }
 
-    private func field(_ field: DatabaseQuery.Field) -> String {
+    private func field(_ field: DatabaseQuery.Field) -> [String] {
         switch field {
         case .aggregate(let aggregate):
             fatalError()
         case .field(let path, let schema, let alias):
-            return path.first!
+            return path
         case .custom(let value):
             fatalError()
         }
