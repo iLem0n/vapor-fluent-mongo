@@ -56,10 +56,10 @@ extension DatabaseQuery.Field {
         }
     }
 
-    func field() throws -> (path: [String], schema: String?, alias: String?) {
+    func field() throws -> QueryField {
         switch self {
         case .field(let path, let schema, let alias):
-            return (path: path, schema: schema, alias: alias)
+            return .init(path: path, schema: schema, alias: alias)
         default:
             throw Error.invalidFieldType
         }
@@ -71,6 +71,20 @@ extension DatabaseQuery.Field {
             return value
         default:
             throw Error.invalidFieldType
+        }
+    }
+
+    struct QueryField {
+        let path: [String]
+        let schema: String?
+        let alias: String?
+
+        var pathWithNamespace: [String] {
+            guard let schema = self.schema else {
+                return self.path
+            }
+
+            return [schema] + self.path
         }
     }
 

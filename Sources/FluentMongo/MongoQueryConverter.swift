@@ -92,7 +92,7 @@ extension MongoQueryConverter {
 
     private func delete(_ database: MongoDatabase) throws -> [DatabaseRow] {
         let collection = database.collection(self.query.schema)
-        let filter = Document()//self.filter()
+        let filter = try self.filter(database)
         if let result = try collection.deleteMany(filter) {
             #warning("TODO: Log")
         }
@@ -114,17 +114,48 @@ extension MongoQueryConverter {
         case .null:
             return BSONNull()
         case .array(let values):
-            fatalError() // only used when filtering
-        case .dictionary(let dict):
-            fatalError() // never used
+            return try values.map { try self.bsonValue($0) }
         case .default:
             return BSONNull() // ignore if not _id
         case .custom(let value as BSONValue):
             return value
         case .custom:
             fatalError() // not supported
+        case .dictionary(let dict):
+            fatalError() // never used
         }
     }
+
+    private func `operator`(from method: DatabaseQuery.Filter.Method) -> String {
+        switch method {
+        case .equality(let inverse):
+            return inverse ? "$ne" : "$eq"
+        case .order(let inverse, let equality):
+            switch (inverse, equality) {
+            case (true, true):
+                return "$lte"
+            case (true, false):
+                return "$lt"
+            case (false, true):
+                return "$gte"
+            case (false, false):
+                return "$gt"
+            }
+        case .subset(let inverse):
+            return inverse ? "$nin" : "$in"
+        case .contains(let inverse, let location):
+            #warning("TODO: implement this")
+            fatalError()
+        case .custom(let value as String):
+            return value
+        default:
+            #warning("TODO: implement this")
+            fatalError() // not supported
+        }
+    }
+}
+
+extension MongoQueryConverter {
 
     private func joins() throws -> [Document] {
         return try self.query.joins.map { join in
@@ -155,9 +186,75 @@ extension MongoQueryConverter {
         }
     }
 
-    private func filter() -> Document? {
-        self.query.filters
-        fatalError()
+    private func match() throws -> Document? {
+
+        guard !self.query.filters.isEmpty else {
+            return nil
+        }
+
+        return try self.query.filters.reduce(into: Document()) { document, filter in
+
+            // Build
+            switch filter {
+            case .value(let field, let method, let value):
+                #warning("TODO: check if we need path or pathWithNamespace - related to byRemovingKeysPrefix")
+                let pathWithNamespace = try field.field()/*pathWithNamespace*/.path.joined(separator: ".")
+                let op = self.operator(from: method)
+                let value = try self.bsonValue(value)
+                document[pathWithNamespace] = [op: value] as Document
+            case .field(let lhs, let method, let rhs):
+                fatalError()
+            case .group(let filters, let relation):
+                fatalError()
+            case .custom(let document as Document):
+                fatalError()
+            default:
+                break
+            }
+
+            // Apply
+            /*
+            let filterByRemovingRootNamespace = filter.byRemovingKeysPrefix(query.collection)
+
+            switch query.filter {
+            case .some(let document):
+                query.filter = [query.defaultFilterRelation.rawValue: [document, filterByRemovingRootNamespace]]
+            case .none:
+                query.filter = filterByRemovingRootNamespace
+            }
+             */
+        }
+    }
+
+    private func projection() -> Document? {
+        var projection = Document()
+
+        for field in self.query.fields {
+
+            let key: String
+
+            switch field {
+            case .field(let path, let schema, let alias):
+                let path = self.query.schema == schema
+                    ? path
+                    : DatabaseQuery.Field.QueryField(path: path, schema: schema, alias: alias).pathWithNamespace
+                key = path.joined(separator: ".")
+            case .custom(let value as String):
+                key = value
+            default:
+                continue
+            }
+
+            projection[key] = true
+        }
+
+        guard !projection.isEmpty else {
+            return nil
+        }
+
+        projection["_id"] = true
+
+        return projection
     }
 }
 
@@ -172,10 +269,30 @@ extension MongoQueryConverter {
         }
 
         // Filters
-        if let filter = self.filter() {
-            pipeline.append(["$match": filter])
+        if let match = try self.match() {
+            pipeline.append(["$match": match])
+        }
+
+        // Projection
+        if let projection = self.projection() {
+            pipeline.append(["$project": projection])
         }
 
         return pipeline
+    }
+
+    private func filter(_ database: MongoDatabase) throws -> Document {
+
+        guard !self.query.filters.isEmpty else {
+            return [:]
+        }
+
+        var pipeline = try self.aggregationPipeline()
+        pipeline.append(["$project": ["_id": true] as Document])
+
+        let cursor = try database.collection(self.query.schema).aggregate(pipeline)
+        let identifiers = cursor.compactMap { $0["_id"] }
+
+        return ["_id": ["$in": identifiers] as Document]
     }
 }
