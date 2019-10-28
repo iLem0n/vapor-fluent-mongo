@@ -46,6 +46,7 @@ public struct MongoQueryConverter {
 extension MongoQueryConverter {
 
     private func find(_ database: MongoDatabase) throws -> [DatabaseRow] {
+        #warning("TODO: implement this")
         return []
     }
 
@@ -87,6 +88,7 @@ extension MongoQueryConverter {
     }
 
     private func update(_ database: MongoDatabase) throws -> [DatabaseRow] {
+        #warning("TODO: implement this")
         return []
     }
 
@@ -101,6 +103,7 @@ extension MongoQueryConverter {
     }
 
     private func custom(_ database: MongoDatabase) throws -> [DatabaseRow] {
+        #warning("TODO: implement this")
         return []
     }
 }
@@ -256,6 +259,73 @@ extension MongoQueryConverter {
 
         return projection
     }
+
+    private func distinct() -> [Document]? {
+        #warning("TODO: Not supported")
+        guard /*self.query.isDistinct*/ false else {
+            return nil
+        }
+
+        var stages = [Document]()
+        var group = Document()
+        var id = Document()
+
+        for field in self.query.fields {
+
+            let key: String
+            let value: String
+
+            switch field {
+            case .field(let path, let schema, let alias):
+                // It is not possible to use dots when specifying an id field for $group
+                let queryField = DatabaseQuery.Field.QueryField(path: path, schema: schema, alias: alias)
+                key = queryField.pathWithNamespace.joined(separator: ":")
+                value = "$" + (self.query.schema == schema
+                    ? path
+                    : queryField.pathWithNamespace
+                ).joined(separator: ".")
+            case .custom(let value as String):
+                #warning("TODO: Not supported")
+                fatalError()
+            default:
+                continue
+            }
+
+            id[key] = value
+        }
+
+        if id.isEmpty {
+            id[self.query.schema + ":_id"] = "$_id"
+        }
+
+        group["_id"] = id
+        group["doc"] = ["$first": "$$ROOT"] as Document
+
+        stages.append(["$group": group])
+        stages.append(["$replaceRoot": ["newRoot": "$doc"] as Document])
+
+        return stages
+    }
+
+    private func sort() -> Document? {
+        #warning("TODO: implement this")
+        return nil
+    }
+
+    private func skip() -> Document? {
+        #warning("TODO: implement this")
+        return nil
+    }
+
+    private func limit() -> Document? {
+        #warning("TODO: implement this")
+        return nil
+    }
+
+    private func aggregates() -> [Document]? {
+        #warning("TODO: implement this")
+        return nil
+    }
 }
 
 extension MongoQueryConverter {
@@ -263,19 +333,42 @@ extension MongoQueryConverter {
     private func aggregationPipeline() throws -> [Document] {
         var pipeline = [Document]()
 
-        // Joins
-        if !self.query.joins.isEmpty {
-            pipeline.append(contentsOf: try self.joins())
+        func appendStage(_ name: String, _ value: Document?) {
+            guard let value = value else {
+                return
+            }
+
+            pipeline.append([name: value])
         }
 
-        // Filters
-        if let match = try self.match() {
-            pipeline.append(["$match": match])
+        func appendStages(_ values: [Document]?) {
+            guard let values = values, !values.isEmpty else {
+                return
+            }
+
+            pipeline.append(contentsOf: values)
         }
 
-        // Projection
-        if let projection = self.projection() {
-            pipeline.append(["$project": projection])
+        let joins = try self.joins()
+        appendStages(joins)
+        appendStage("$match", try self.match())
+        appendStage("$project", self.projection())
+        appendStages(self.distinct())
+        appendStage("$sort", self.sort())
+        appendStage("$skip", self.skip())
+        appendStage("$limit", self.limit())
+        appendStages(self.aggregates())
+
+        // Remove joined collections from the output
+        if !joins.isEmpty {
+            var projection = Document()
+            for join in joins {
+                guard let field = join["$lookup", "as"] as? String else {
+                    continue
+                }
+                projection[field] = false
+            }
+            appendStage("$project", projection)
         }
 
         return pipeline
