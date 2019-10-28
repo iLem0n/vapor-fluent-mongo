@@ -49,7 +49,9 @@ extension MongoDatabaseDriver: DatabaseDriver {
     }
 
     func execute(schema: DatabaseSchema, database: Database) -> EventLoopFuture<Void> {
-        return self.eventLoopGroup.future()
+        return self.pool.withConnection { connection in
+            return connection.execute(MongoSchemaConverter(schema).convert) { _ in }
+        }
     }
 
     func shutdown() {
