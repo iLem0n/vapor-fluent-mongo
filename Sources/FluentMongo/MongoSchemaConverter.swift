@@ -74,11 +74,11 @@ extension MongoSchemaConverter {
     }
 
     private func update(_ database: MongoDatabase) throws {
-        #warning("TODO: implement this")
+        #warning("TODO: Ask Tanner. Nothing seem to be calling update. It's not clear how is supposed to work.")
     }
 
     private func delete(_ database: MongoDatabase) throws {
-        #warning("TODO: implement this")
+        #warning("TODO: Remove the validation rules or the whole collection?")
     }
 }
 
